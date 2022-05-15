@@ -25,111 +25,116 @@
 #define STEPS_FULL_ROTATION 200 * 16
 #define STEPS_HALF_ROTATION 200 * 16 / 2
 
-#define NUMBER_POINTS 97
+#define NUMBER_POINTS 97 + 5
 
 #define STEPS_PER_MM (8060 / 102.0)
 
 #define MAX_DISTANCE_BETWEEN_MICROPOINTS 1
 
 Point points[NUMBER_POINTS] = {
-    Point(30, -10),
-    Point(30, 10),
-    Point(10, 10),
-    Point(10, 30),
-    Point(-10, 30),
-    Point(-10, 10),
-    Point(-30, 10),
-    Point(-30, -10),
-    Point(-10, -10),
-    Point(-10, -30),
-    Point(10, -30),
-    Point(10, -10),
-    Point(30, -10),
-    Point(10, -10),
-    Point(10, -30),
-    Point(-10, -30),
-    Point(-10, -10),
-    Point(-30, -10),
-    Point(-30, 10),
-    Point(-10, 10),
-    Point(-10, 30),
-    Point(10, 30),
-    Point(10, 10),
-    Point(30, 10),
-    Point(30, -10),
-        Point(30, 10),
-    Point(10, 10),
-    Point(10, 30),
-    Point(-10, 30),
-    Point(-10, 10),
-    Point(-30, 10),
-    Point(-30, -10),
-    Point(-10, -10),
-    Point(-10, -30),
-    Point(10, -30),
-    Point(10, -10),
-    Point(30, -10),
-    Point(10, -10),
-    Point(10, -30),
-    Point(-10, -30),
-    Point(-10, -10),
-    Point(-30, -10),
-    Point(-30, 10),
-    Point(-10, 10),
-    Point(-10, 30),
-    Point(10, 30),
-    Point(10, 10),
-    Point(30, 10),
-    Point(30, -10),
-        Point(30, 10),
-    Point(10, 10),
-    Point(10, 30),
-    Point(-10, 30),
-    Point(-10, 10),
-    Point(-30, 10),
-    Point(-30, -10),
-    Point(-10, -10),
-    Point(-10, -30),
-    Point(10, -30),
-    Point(10, -10),
-    Point(30, -10),
-    Point(10, -10),
-    Point(10, -30),
-    Point(-10, -30),
-    Point(-10, -10),
-    Point(-30, -10),
-    Point(-30, 10),
-    Point(-10, 10),
-    Point(-10, 30),
-    Point(10, 30),
-    Point(10, 10),
-    Point(30, 10),
-    Point(30, -10),
-        Point(30, 10),
-    Point(10, 10),
-    Point(10, 30),
-    Point(-10, 30),
-    Point(-10, 10),
-    Point(-30, 10),
-    Point(-30, -10),
-    Point(-10, -10),
-    Point(-10, -30),
-    Point(10, -30),
-    Point(10, -10),
-    Point(30, -10),
-    Point(10, -10),
-    Point(10, -30),
-    Point(-10, -30),
-    Point(-10, -10),
-    Point(-30, -10),
-    Point(-30, 10),
-    Point(-10, 10),
-    Point(-10, 30),
-    Point(10, 30),
-    Point(10, 10),
-    Point(30, 10),
-    Point(30, -10)
-};
+    Point(1, 1, false),
+    Point(-1, 1, true),
+    Point(-1, -1, true),
+    Point(1, -1, true),
+    Point(1, 1, true),
+
+    Point(30, -10, false),
+    Point(30, 10, true),
+    Point(10, 10, true),
+    Point(10, 30, true),
+    Point(-10, 30, true),
+    Point(-10, 10, true),
+    Point(-30, 10, true),
+    Point(-30, -10, true),
+    Point(-10, -10, true),
+    Point(-10, -30, true),
+    Point(10, -30, true),
+    Point(10, -10, true),
+    Point(30, -10, true),
+    Point(10, -10, true),
+    Point(10, -30, true),
+    Point(-10, -30, true),
+    Point(-10, -10, true),
+    Point(-30, -10, true),
+    Point(-30, 10, true),
+    Point(-10, 10, true),
+    Point(-10, 30, true),
+    Point(10, 30, true),
+    Point(10, 10, true),
+    Point(30, 10, true),
+    Point(30, -10, true),
+    Point(30, 10, true),
+    Point(10, 10, true),
+    Point(10, 30, true),
+    Point(-10, 30, true),
+    Point(-10, 10, true),
+    Point(-30, 10, true),
+    Point(-30, -10, true),
+    Point(-10, -10, true),
+    Point(-10, -30, true),
+    Point(10, -30, true),
+    Point(10, -10, true),
+    Point(30, -10, true),
+    Point(10, -10, true),
+    Point(10, -30, true),
+    Point(-10, -30, true),
+    Point(-10, -10, true),
+    Point(-30, -10, true),
+    Point(-30, 10, true),
+    Point(-10, 10, true),
+    Point(-10, 30, true),
+    Point(10, 30, true),
+    Point(10, 10, true),
+    Point(30, 10, true),
+    Point(30, -10, true),
+    Point(30, 10, true),
+    Point(10, 10, true),
+    Point(10, 30, true),
+    Point(-10, 30, true),
+    Point(-10, 10, true),
+    Point(-30, 10, true),
+    Point(-30, -10, true),
+    Point(-10, -10, true),
+    Point(-10, -30, true),
+    Point(10, -30, true),
+    Point(10, -10, true),
+    Point(30, -10, true),
+    Point(10, -10, true),
+    Point(10, -30, true),
+    Point(-10, -30, true),
+    Point(-10, -10, true),
+    Point(-30, -10, true),
+    Point(-30, 10, true),
+    Point(-10, 10, true),
+    Point(-10, 30, true),
+    Point(10, 30, true),
+    Point(10, 10, true),
+    Point(30, 10, true),
+    Point(30, -10, true),
+    Point(30, 10, true),
+    Point(10, 10, true),
+    Point(10, 30, true),
+    Point(-10, 30, true),
+    Point(-10, 10, true),
+    Point(-30, 10, true),
+    Point(-30, -10, true),
+    Point(-10, -10, true),
+    Point(-10, -30, true),
+    Point(10, -30, true),
+    Point(10, -10, true),
+    Point(30, -10, true),
+    Point(10, -10, true),
+    Point(10, -30, true),
+    Point(-10, -30, true),
+    Point(-10, -10, true),
+    Point(-30, -10, true),
+    Point(-30, 10, true),
+    Point(-10, 10, true),
+    Point(-10, 30, true),
+    Point(10, 30, true),
+    Point(10, 10, true),
+    Point(30, 10, true),
+    Point(30, -10, true)};
 
 AccelStepper motor_turn(AccelStepper::DRIVER, PIN_MOT_L_DIR, PIN_MOT_L_STP);
 AccelStepper motor_linear(AccelStepper::DRIVER, PIN_MOT_R_DIR, PIN_MOT_R_STP);
@@ -311,7 +316,7 @@ Point getCurrentMicropoint(long currentMicropoint, long numberOfMicropoints, dou
             y -= newDenta_y;
         }
 
-        return Point(x, y);
+        return Point(x, y, newPoint.draw);
     }
 }
 
@@ -350,10 +355,10 @@ long getLinPos(Point nextPoint)
     return STEPS_PER_MM * nextPoint.radius;
 }
 
-void moveTo(Point nextPoint, bool draw, Point lastPoint = Point(0, 0))
+void moveTo(Point nextPoint, Point lastPoint = Point(0, 0, false))
 {
-    setPen(draw);
-    if (draw && (nextPoint.getDistanceToPoint(lastPoint) > MAX_DISTANCE_BETWEEN_MICROPOINTS))
+    setPen(nextPoint.draw);
+    if (nextPoint.draw && (nextPoint.getDistanceToPoint(lastPoint) > MAX_DISTANCE_BETWEEN_MICROPOINTS))
     {
         long numberOfMicropoints = getNumberOfMicropoints(nextPoint.getDistanceToPoint(lastPoint));
 
@@ -432,11 +437,11 @@ void setup(void)
         Serial.println(i);
         if (i >= 1)
         {
-            moveTo(points[i], true, points[i - 1]);
+            moveTo(points[i], points[i - 1]);
         }
         else
         {
-            moveTo(points[i], false);
+            moveTo(points[i]);
         }
     }
 

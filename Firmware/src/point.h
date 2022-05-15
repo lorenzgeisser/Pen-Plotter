@@ -8,19 +8,21 @@ class Point
 public:
     double x;
     double y;
+    bool draw;
     bool inCenter;
     double angle;
     double radius;
 
-    Point(double _x, double _y)
+    Point(double _x, double _y, bool _draw)
     {
-        updatePoint(_x, _y);
+        updatePoint(_x, _y, _draw);
     }
 
-    void updatePoint(double _x, double _y)
+    void updatePoint(double _x, double _y, bool _draw)
     {
         x = _x;
         y = _y;
+        draw = _draw;
 
         updateAngle();
         updateRadius();
@@ -76,22 +78,22 @@ private:
         else
         {
             // angle calculation
-             angle = atan(abs(y) / abs(x)) * 180.0 / PI;
+            angle = atan(abs(y) / abs(x)) * 180.0 / PI;
 
             if (x < 0 && y > 0)
             {
                 // point is in quadrant 2
-                angle = 180-angle ;
+                angle = 180 - angle;
             }
             else if (x < 0 && y < 0)
             {
                 // point is in quadrant 3
-                angle += 180 ;
+                angle += 180;
             }
             else if (x > 0 && y < 0)
             {
                 // point is in quadrant 4
-                angle = 360-angle ;
+                angle = 360 - angle;
             }
         }
     }
