@@ -8,22 +8,22 @@ class Point
 public:
     double x;
     double y;
-    bool draw;
+    bool draw = false;
     bool inCenter;
     double angle;
     double radius;
 
-    Point(double _x, double _y, bool _draw)
-    {
-        updatePoint(_x, _y, _draw);
-    }
-
-    void updatePoint(double _x, double _y, bool _draw)
+    Point(double _x = 0, double _y = 0, bool _draw = false)
     {
         x = _x;
         y = _y;
         draw = _draw;
 
+        updatePoint();
+    }
+
+    void updatePoint()
+    {
         updateAngle();
         updateRadius();
     }

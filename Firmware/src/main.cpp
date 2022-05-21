@@ -2,16 +2,17 @@
 #include <AccelStepper.h>
 #include <MultiStepper.h>
 #include <Servo.h>
-
+#include <SPI.h>
+#include <SD.h>
 #include "point.h"
 
-#define PIN_MOT_L_EN 6
-#define PIN_MOT_L_DIR 3
-#define PIN_MOT_L_STP 2
+#define PIN_MOT_ROT_EN 6
+#define PIN_MOT_ROT_DIR 2
+#define PIN_MOT_ROT_STP 3
 
-#define PIN_MOT_R_EN 12
-#define PIN_MOT_R_DIR 11
-#define PIN_MOT_R_STP 10
+#define PIN_MOT_LIN_EN 6
+#define PIN_MOT_LIN_DIR 10
+#define PIN_MOT_LIN_STP A0
 
 #define PIN_ENDSWITCH 4
 #define PIN_SERVO 5
@@ -25,119 +26,12 @@
 #define STEPS_FULL_ROTATION 200 * 16
 #define STEPS_HALF_ROTATION 200 * 16 / 2
 
-#define NUMBER_POINTS 97 + 5
-
 #define STEPS_PER_MM (8060 / 102.0)
 
 #define MAX_DISTANCE_BETWEEN_MICROPOINTS 1
 
-Point points[NUMBER_POINTS] = {
-    Point(1, 1, false),
-    Point(-1, 1, true),
-    Point(-1, -1, true),
-    Point(1, -1, true),
-    Point(1, 1, true),
-
-    Point(30, -10, false),
-    Point(30, 10, true),
-    Point(10, 10, true),
-    Point(10, 30, true),
-    Point(-10, 30, true),
-    Point(-10, 10, true),
-    Point(-30, 10, true),
-    Point(-30, -10, true),
-    Point(-10, -10, true),
-    Point(-10, -30, true),
-    Point(10, -30, true),
-    Point(10, -10, true),
-    Point(30, -10, true),
-    Point(10, -10, true),
-    Point(10, -30, true),
-    Point(-10, -30, true),
-    Point(-10, -10, true),
-    Point(-30, -10, true),
-    Point(-30, 10, true),
-    Point(-10, 10, true),
-    Point(-10, 30, true),
-    Point(10, 30, true),
-    Point(10, 10, true),
-    Point(30, 10, true),
-    Point(30, -10, true),
-    Point(30, 10, true),
-    Point(10, 10, true),
-    Point(10, 30, true),
-    Point(-10, 30, true),
-    Point(-10, 10, true),
-    Point(-30, 10, true),
-    Point(-30, -10, true),
-    Point(-10, -10, true),
-    Point(-10, -30, true),
-    Point(10, -30, true),
-    Point(10, -10, true),
-    Point(30, -10, true),
-    Point(10, -10, true),
-    Point(10, -30, true),
-    Point(-10, -30, true),
-    Point(-10, -10, true),
-    Point(-30, -10, true),
-    Point(-30, 10, true),
-    Point(-10, 10, true),
-    Point(-10, 30, true),
-    Point(10, 30, true),
-    Point(10, 10, true),
-    Point(30, 10, true),
-    Point(30, -10, true),
-    Point(30, 10, true),
-    Point(10, 10, true),
-    Point(10, 30, true),
-    Point(-10, 30, true),
-    Point(-10, 10, true),
-    Point(-30, 10, true),
-    Point(-30, -10, true),
-    Point(-10, -10, true),
-    Point(-10, -30, true),
-    Point(10, -30, true),
-    Point(10, -10, true),
-    Point(30, -10, true),
-    Point(10, -10, true),
-    Point(10, -30, true),
-    Point(-10, -30, true),
-    Point(-10, -10, true),
-    Point(-30, -10, true),
-    Point(-30, 10, true),
-    Point(-10, 10, true),
-    Point(-10, 30, true),
-    Point(10, 30, true),
-    Point(10, 10, true),
-    Point(30, 10, true),
-    Point(30, -10, true),
-    Point(30, 10, true),
-    Point(10, 10, true),
-    Point(10, 30, true),
-    Point(-10, 30, true),
-    Point(-10, 10, true),
-    Point(-30, 10, true),
-    Point(-30, -10, true),
-    Point(-10, -10, true),
-    Point(-10, -30, true),
-    Point(10, -30, true),
-    Point(10, -10, true),
-    Point(30, -10, true),
-    Point(10, -10, true),
-    Point(10, -30, true),
-    Point(-10, -30, true),
-    Point(-10, -10, true),
-    Point(-30, -10, true),
-    Point(-30, 10, true),
-    Point(-10, 10, true),
-    Point(-10, 30, true),
-    Point(10, 30, true),
-    Point(10, 10, true),
-    Point(30, 10, true),
-    Point(30, -10, true)};
-
-AccelStepper motor_turn(AccelStepper::DRIVER, PIN_MOT_L_DIR, PIN_MOT_L_STP);
-AccelStepper motor_linear(AccelStepper::DRIVER, PIN_MOT_R_DIR, PIN_MOT_R_STP);
+AccelStepper motor_turn(AccelStepper::DRIVER, PIN_MOT_ROT_STP, PIN_MOT_ROT_DIR);
+AccelStepper motor_linear(AccelStepper::DRIVER, PIN_MOT_LIN_STP, PIN_MOT_LIN_DIR);
 
 MultiStepper motors;
 
@@ -146,10 +40,10 @@ Servo myservo;
 void initMotors(void)
 {
     motor_turn.setPinsInverted(false, false, true);
-    motor_turn.setEnablePin(PIN_MOT_L_EN);
+    motor_turn.setEnablePin(PIN_MOT_ROT_EN);
 
     motor_linear.setPinsInverted(false, false, true);
-    motor_linear.setEnablePin(PIN_MOT_R_EN);
+    motor_linear.setEnablePin(PIN_MOT_LIN_EN);
 
     motor_linear.setMaxSpeed(1000.0);
     motor_linear.setAcceleration(50.0);
@@ -168,12 +62,12 @@ void setPen(bool active)
     if (active)
     {
         myservo.write(100);
-        delay(200); // waits 15ms for the servo to reach the position
+        // delay(200); // waits 15ms for the servo to reach the position
     }
     else
     {
         myservo.write(70); // tell servo to go to position in variable 'pos'
-        delay(200);        // waits 15ms for the servo to reach the position
+        // delay(200);        // waits 15ms for the servo to reach the position
     }
 }
 void home(void)
@@ -388,31 +282,196 @@ void moveTo(Point nextPoint, Point lastPoint = Point(0, 0, false))
         motors.runSpeedToPosition();
     }
 }
+
+bool getNextPoint(File *myFile, Point *p_, double middle_x, double middle_y)
+{
+    File temp = SD.open("temp.txt", FILE_WRITE);
+
+    temp.close();
+
+    // Check to see if the file exists:
+
+    if (SD.exists("temp.txt"))
+    {
+
+        Serial.println("temp.txt exists.");
+    }
+    else
+    {
+
+        Serial.println("temp.txt doesn't exist.");
+    }
+
+    // delete the file:
+
+    Serial.println("Removing temp.txt...");
+
+    SD.remove("temp.txt");
+
+    temp = SD.open("temp.txt", FILE_WRITE);
+
+
+    temp.write("hello");
+        temp.write("\n");
+        
+    temp.write("hoi");
+        temp.write("\n");
+
+
+    temp.close();
+
+    while (myFile->available())
+    {
+        String currentChar = myFile->readStringUntil('\n');
+
+        // Serial.println(currentChar);
+
+        if (currentChar.startsWith("G1") || currentChar.startsWith("G0"))
+        {
+            for (int i = 0; i < currentChar.length(); i++)
+            {
+                char singleCHar = currentChar.charAt(i);
+
+                switch (singleCHar)
+                {
+                case 'X':
+                    p_->x = currentChar.substring(i + 1).toDouble() - middle_x;
+                    break;
+
+                case 'Y':
+                    p_->y = currentChar.substring(i + 1).toDouble() - middle_y;
+                    break;
+
+                case 'Z':
+                    if (currentChar.substring(i + 1).toDouble() > 0)
+                    {
+                        p_->draw = false;
+                    }
+                    else
+                    {
+                        p_->draw = true;
+                    }
+                    break;
+
+                default:
+                    break;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void setup(void)
 {
     Serial.begin(115200);
 
     delay(3000);
 
-    Serial.println("Points:");
-    for (int i = 0; i < NUMBER_POINTS; i++)
+    if (!SD.begin(A1))
     {
-        Serial.print("Point ");
-        Serial.print(i);
-
-        Serial.print(" x=");
-        Serial.print(points[i].x);
-
-        Serial.print(" y=");
-        Serial.print(points[i].y);
-
-        Serial.print(" radius=");
-        Serial.print(points[i].radius);
-
-        Serial.print(" angle=");
-        Serial.println(points[i].angle);
+        Serial.println("SD initialization failed!");
+        while (true)
+            ;
     }
-    Serial.println();
+
+    String filename = "fisch.txt";
+    File myFile;
+
+    myFile = SD.open(filename, FILE_READ);
+
+    if (!myFile)
+    {
+        Serial.println("error opening " + filename);
+        while (true)
+            ;
+    }
+    Point nextPoint = Point(10, 10, false);
+
+    double min_x = 1000000;
+    double max_x = -1000000;
+    double min_y = 1000000;
+    double max_y = -1000000;
+
+    Serial.println(" start ");
+
+    int cnt = 0;
+
+    while (getNextPoint(&myFile, &nextPoint, 0, 0))
+    {
+        if (nextPoint.draw)
+        {
+            cnt++;
+            if (nextPoint.x < min_x)
+            {
+                min_x = nextPoint.x;
+            }
+            if (nextPoint.x > max_x)
+            {
+                max_x = nextPoint.x;
+            }
+
+            if (nextPoint.y < min_y)
+            {
+                min_y = nextPoint.y;
+            }
+            if (nextPoint.y > max_y)
+            {
+                max_y = nextPoint.x;
+            }
+
+            Serial.print("x = ");
+            Serial.print(nextPoint.x);
+            Serial.print("  ");
+
+            Serial.print("y = ");
+            Serial.print(nextPoint.y);
+            Serial.print("  ");
+
+            Serial.print("draw = ");
+            Serial.print(nextPoint.draw);
+            Serial.println("  ");
+        }
+    }
+
+    Serial.println(cnt);
+
+    Serial.print("min x = ");
+    Serial.print(min_x);
+    Serial.print("  ");
+
+    Serial.print("max x = ");
+    Serial.print(max_x);
+    Serial.print("  ");
+
+    Serial.print("min y = ");
+    Serial.print(min_y);
+    Serial.print("  ");
+
+    Serial.print("max y = ");
+    Serial.print(max_y);
+    Serial.print("  ");
+
+    double delta_x = max_x - min_x;
+
+    double middle_x = min_x + (delta_x / 2);
+
+    double delta_y = max_y - min_y;
+    double middle_y = min_y + (delta_y / 2);
+
+    myFile.close();
+
+    myFile = SD.open(filename, FILE_READ);
+
+    if (!myFile)
+    {
+        Serial.println("error opening " + filename);
+        while (true)
+            ;
+    }
 
     Serial.println("Init Servo:");
     initServo();
@@ -429,20 +488,29 @@ void setup(void)
 
     motor_turn.setMaxSpeed(800);
 
-    for (int i = 0; i < NUMBER_POINTS; i++)
-    {
-        Serial.println();
+    Serial.println(" start drawing");
 
-        Serial.print("Point ");
-        Serial.println(i);
-        if (i >= 1)
-        {
-            moveTo(points[i], points[i - 1]);
-        }
-        else
-        {
-            moveTo(points[i]);
-        }
+    Point lastPoint(0, 0, false);
+
+    lastPoint.updatePoint();
+
+    Point nextPoint2 = Point(10, 10, false);
+
+    while (getNextPoint(&myFile, &nextPoint2, middle_x, middle_y))
+    {
+        nextPoint2.updatePoint();
+        // Serial.println("next Point: ");
+        // Serial.print("X = ");
+        // Serial.println(nextPoint2.x);
+        // Serial.print("Y = ");
+        // Serial.println(nextPoint2.y);
+        // Serial.print("draw = ");
+        // Serial.println(nextPoint2.draw);
+
+        moveTo(nextPoint2, lastPoint);
+
+        lastPoint = nextPoint2;
+        lastPoint.updatePoint();
     }
 
     home();
