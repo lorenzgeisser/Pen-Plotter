@@ -13,6 +13,11 @@ Machine machine;
 
 void failState(void)
 {
+                Serial.println("Failstate"); 
+
+    machine.setPen(false);
+    machine.disableMotors();
+
     while (true)
     {
     }

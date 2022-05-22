@@ -18,9 +18,6 @@
 #define PIN_ENDSWITCH 4
 #define PIN_SERVO 5
 
-#define SPEED_HOMING_FAST 2000
-#define SPEED_HOMING_SLOW 100
-
 #define MOTOR_STEPS_FULL 200 * 16
 #define MOTOR_STEPS_DEG ((MOTOR_STEPS_FULL) / 360.0)
 
@@ -30,6 +27,12 @@
 #define STEPS_PER_MM (8060 / 102.0)
 
 #define MAX_DISTANCE_BETWEEN_MICROPOINTS 1
+
+#define MAX_DISTANCE_HOMING_MM 300
+
+#define DISTANCE_SWITCH_MOVE_AWAY_MM 20
+
+#define DISTANCE_SWITCH_TO_MIDDLE_MM 70.5
 
 AccelStepper motor_turn;
 AccelStepper motor_linear;
@@ -105,54 +108,30 @@ public:
 
     bool home(void)
     {
+        // move pen up
         setPen(false);
-        motor_linear.setMaxSpeed(SPEED_HOMING_FAST);
 
-        long newAbsSteps[] = {0, 10000};
+        // reset absolute positions of motors
+        motor_linear.setCurrentPosition(0);
+        motor_turn.setCurrentPosition(0);
 
-        motors.moveTo(newAbsSteps);
+        // move linear motor until switch is pressed {rot, lin}
+        long tempSteps[] = {0, (long)MAX_DISTANCE_HOMING_MM * (long)STEPS_PER_MM};
+        motors.moveTo(tempSteps);
 
-        while (digitalRead(PIN_ENDSWITCH))
+        while (digitalRead(PIN_ENDSWITCH) && motors.run())
         {
-            motors.run();
         }
 
-        motor_linear.setCurrentPosition(0);
-
-        delay(500);
-
-        motor_linear.setMaxSpeed(SPEED_HOMING_FAST);
-
-        long newAbsSteps2[] = {0, -10000};
-
-        motors.moveTo(newAbsSteps2);
-
-        while (!digitalRead(PIN_ENDSWITCH))
+        // check for successful homing
+        if (digitalRead(PIN_ENDSWITCH))
         {
-            motors.run();
+            Serial.println("Fail: switch is not pressed");
+            return false;
         }
 
-        motor_linear.setCurrentPosition(0);
-        delay(500);
-
-        motor_linear.setMaxSpeed(SPEED_HOMING_SLOW);
-
-        long newAbsSteps3[] = {0, 10000};
-
-        motors.moveTo(newAbsSteps3);
-
-        while (digitalRead(PIN_ENDSWITCH))
-        {
-            motors.run();
-        }
-
-        motor_linear.setCurrentPosition(0);
-
-        motor_turn.setCurrentPosition(3 * MOTOR_STEPS_FULL);
-
-        motor_linear.setMaxSpeed(SPEED_HOMING_FAST);
-
-        motor_linear.setCurrentPosition(5480);
+        // set absolute position of linear motor
+        motor_linear.setCurrentPosition(DISTANCE_SWITCH_TO_MIDDLE_MM * STEPS_PER_MM);
 
         return true;
     }
@@ -189,15 +168,22 @@ public:
                 motors.runSpeedToPosition();
             }
 
-            long newAbsSteps[] = {getFastestRotAbs(nextPoint), getLinPos(nextPoint)};
+            long val = getFastestRotAbs(nextPoint);
+
+            Serial.println(val);
+
+            long newAbsSteps[] = {val, getLinPos(nextPoint)};
 
             motors.moveTo(newAbsSteps);
             motors.runSpeedToPosition();
         }
         else
         {
+             long val = getFastestRotAbs(nextPoint);
 
-            long newAbsSteps[] = {getFastestRotAbs(nextPoint), getLinPos(nextPoint)};
+            Serial.println(val);
+
+            long newAbsSteps[] = {val, getLinPos(nextPoint)};
 
             motors.moveTo(newAbsSteps);
             motors.runSpeedToPosition();
@@ -285,18 +271,27 @@ private:
             return Point(x, y, newPoint.draw);
         }
     }
-
     long getFastestRotAbs(Point nextPoint)
     {
+        // prenvent overflow of currentPosition
         while (motor_turn.currentPosition() > STEPS_FULL_ROTATION)
         {
             motor_turn.setCurrentPosition(motor_turn.currentPosition() - STEPS_FULL_ROTATION);
         }
 
-        while (motor_turn.currentPosition() < (-1 * STEPS_FULL_ROTATION))
+        // change negative currentPosition to positive
+        while (motor_turn.currentPosition() < 0)
         {
             motor_turn.setCurrentPosition(motor_turn.currentPosition() + STEPS_FULL_ROTATION);
         }
+
+
+
+
+
+
+
+
 
         long currentPositionRot = motor_turn.currentPosition();
 
@@ -314,6 +309,8 @@ private:
         }
 
         return currentPositionRot + deltaMove;
+
+        
     }
 
     long getLinPos(Point nextPoint)
