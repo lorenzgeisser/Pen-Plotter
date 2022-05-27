@@ -7,13 +7,27 @@
 
 #define FILENAME "fisch.txt"
 
-SdCard sdCard;
+enum State
+{
+    START,
+    READY,
+    HOMING,
+    DRAWING,
+    FAULT,
+    FINISHED
+};
+
+State currentState = START;
+
+bool isFirst = true;
+bool isFinished = false;
+
 
 Machine machine;
 
 void failState(void)
 {
-                Serial.println("Failstate"); 
+    Serial.println("Failstate");
 
     machine.setPen(false);
     machine.disableMotors();
@@ -91,71 +105,164 @@ void setup(void)
 
     machine.enableMotors();
 
-    // Home machine
-    Serial.print("Home machine");
-    if (machine.home())
-    {
-        Serial.println(" --> OK");
-    }
-    else
-    {
-        Serial.println(" --> Fail");
-        failState();
-    }
+    // // Home machine
+    // Serial.print("Home machine");
+    // if (machine.home())
+    // {
+    //     Serial.println(" --> OK");
+    // }
+    // else
+    // {
+    //     Serial.println(" --> Fail");
+    //     failState();
+    // }
 
-    // Start drawing
-    Serial.println("Start drawing:");
+    // // Start drawing
+    // Serial.println("Start drawing:");
 
-    Point nextPoint = Point(10, 10, false);
-    Point lastPoint = Point(10, 10, false);
+    // Point nextPoint = Point(10, 10, false);
+    // Point lastPoint = Point(10, 10, false);
 
-    lastPoint.updatePoint();
+    // lastPoint.updatePoint();
 
-    while (sdCard.getNextPoint(&nextPoint))
-    {
-        nextPoint.updatePoint();
-        Serial.print("next Point: ");
-        Serial.print("X = ");
-        Serial.print(nextPoint.x);
-        Serial.print("  Y = ");
-        Serial.print(nextPoint.y);
-        Serial.print("  draw = ");
-        Serial.println(nextPoint.draw);
+    // while (sdCard.getNextPoint(&nextPoint))
+    // {
+    //     nextPoint.updatePoint();
+    //     Serial.print("next Point: ");
+    //     Serial.print("X = ");
+    //     Serial.print(nextPoint.x);
+    //     Serial.print("  Y = ");
+    //     Serial.print(nextPoint.y);
+    //     Serial.print("  draw = ");
+    //     Serial.println(nextPoint.draw);
 
-        machine.moveTo(nextPoint, lastPoint);
+    //     machine.moveTo(nextPoint, lastPoint);
 
-        lastPoint = nextPoint;
-        lastPoint.updatePoint();
-    }
-    Serial.println("Finished drawing");
+    //     lastPoint = nextPoint;
+    //     lastPoint.updatePoint();
+    // }
+    // Serial.println("Finished drawing");
 
-    // Close file
-    Serial.print("Close file");
-    if (sdCard.closeFile())
-    {
-        Serial.println(" --> OK");
-    }
-    else
-    {
-        Serial.println(" --> Fail");
-        failState();
-    }
+    // // Close file
+    // Serial.print("Close file");
+    // if (sdCard.closeFile())
+    // {
+    //     Serial.println(" --> OK");
+    // }
+    // else
+    // {
+    //     Serial.println(" --> Fail");
+    //     failState();
+    // }
 
-    // Home machine
-    Serial.print("Home machine");
-    if (machine.home())
-    {
-        Serial.println(" --> OK");
-    }
-    else
-    {
-        Serial.println(" --> Fail");
-        failState();
-    }
+    // // Home machine
+    // Serial.print("Home machine");
+    // if (machine.home())
+    // {
+    //     Serial.println(" --> OK");
+    // }
+    // else
+    // {
+    //     Serial.println(" --> Fail");
+    //     failState();
+    // }
 
-    machine.disableMotors();
+    // machine.disableMotors();
+}
+
+void setState(State newState)
+{
+    currentState = newState;
+
+    isFinished = false;
+    isFirst = true;
 }
 
 void loop()
 {
+
+    switch (currentState)
+    {
+    case START:
+        if (isFirst)
+        {
+            Serial.println("START");
+        }
+
+        setState(HOMING);
+
+        break;
+
+    case HOMING:
+        if (isFirst)
+        {
+            Serial.println("HOMING");
+        }
+
+        if (!machine.home(isFinished, isFirst))
+        {
+            setState(FAULT);
+
+            break;
+        }
+
+        if (isFinished)
+        {
+            setState(DRAWING);
+        }
+
+        break;
+
+    case READY:
+        if (isFirst)
+        {
+            Serial.println("READY");
+            isFirst = false;
+        }
+
+        break;
+
+    case DRAWING:
+    
+        if (isFirst)
+        {
+            Serial.println("DRAWING");
+        }
+
+        if (!machine.draw(isFinished, isFirst, FILENAME))
+        {
+            setState(FAULT);
+
+            break;
+        }
+
+        if (isFinished)
+        {
+            setState(READY);
+        }
+
+        break;
+
+    case FINISHED:
+        if (isFirst)
+        {
+            Serial.println("FINISHED");
+            isFirst = false;
+        }
+
+    case FAULT:
+        if (isFirst)
+        {
+            isFirst = false;
+
+            machine.disableMotors();
+            Serial.println("FAULT");
+        }
+
+        break;
+
+    default:
+        currentState = FAULT;
+        break;
+    }
 }

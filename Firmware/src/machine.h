@@ -26,20 +26,26 @@
 
 #define STEPS_PER_MM (8060 / 102.0)
 
-#define MAX_DISTANCE_BETWEEN_MICROPOINTS 1
+#define MAX_DISTANCE_BETWEEN_MICROPOINTS 4
 
 #define MAX_DISTANCE_HOMING_MM 300
 
-#define DISTANCE_SWITCH_MOVE_AWAY_MM 20
+#define DISTANCE_SWITCH_MOVE_AWAY_MM 1
 
 #define DISTANCE_SWITCH_TO_MIDDLE_MM 70.5
+
+#define TIME_TO_MOVE_PEN_MS 500
 
 AccelStepper motor_turn;
 AccelStepper motor_linear;
 
 MultiStepper motors;
 
+SdCard sdCard;
+
 Servo myservo;
+
+Point homePoint(DISTANCE_SWITCH_TO_MIDDLE_MM, 0);
 
 class Machine
 {
@@ -106,32 +112,152 @@ public:
         return true;
     }
 
-    bool home(void)
+    void setMotorTarget(long rot, long lin)
     {
-        // move pen up
-        setPen(false);
-
-        // reset absolute positions of motors
-        motor_linear.setCurrentPosition(0);
-        motor_turn.setCurrentPosition(0);
-
-        // move linear motor until switch is pressed {rot, lin}
-        long tempSteps[] = {0, (long)MAX_DISTANCE_HOMING_MM * (long)STEPS_PER_MM};
+        long tempSteps[] = {rot, lin};
         motors.moveTo(tempSteps);
+    }
 
-        while (digitalRead(PIN_ENDSWITCH) && motors.run())
+    bool home(bool &isFinished, bool &isFirst)
+    {
+        if (isFirst)
         {
+            // Reset isFirst
+            isFirst = false;
+
+            // Move pen up
+            setPen(false);
+
+            // Reset absolute positions of motors
+            motor_linear.setCurrentPosition(0);
+            motor_turn.setCurrentPosition(0);
+
+            // Move linear motor until switch is pressed
+            setMotorTarget(0, MAX_DISTANCE_HOMING_MM * STEPS_PER_MM);
         }
 
-        // check for successful homing
-        if (digitalRead(PIN_ENDSWITCH))
+        if (!digitalRead(PIN_ENDSWITCH))
         {
-            Serial.println("Fail: switch is not pressed");
+            // The linear axis has reached the limit switch
+
+            // Set absolute position of linear motor
+            motor_linear.setCurrentPosition(homePoint.x * STEPS_PER_MM);
+
+            isFinished = true;
+        }
+        else if (!motors.run())
+        {
+            // The linear axis has not reached the limit switch
+
             return false;
         }
 
-        // set absolute position of linear motor
-        motor_linear.setCurrentPosition(DISTANCE_SWITCH_TO_MIDDLE_MM * STEPS_PER_MM);
+        return true;
+    }
+
+    void clearMotorQueue(void)
+    {
+        setMotorTarget(motor_turn.currentPosition(), motor_linear.currentPosition());
+    }
+
+    bool draw(bool &isFinished, bool &isFirst, String filename)
+    {
+        static bool pointFinished;
+
+        static Point nextPoint;
+        static Point lastPoint;
+        static Point currentMicropoint;
+
+        static long numberOfMicropoints;
+        static double angleRadMicropoints;
+
+        static long currentMicroPointIndex;
+
+        if (isFirst)
+        {
+            // Reset isFirst
+            isFirst = false;
+
+            // Set last point and next point to home point
+            lastPoint = homePoint;
+            nextPoint = homePoint;
+
+            // Open file
+            if (!sdCard.openFile(filename))
+            {
+                return false;
+            }
+
+            // Reset variables
+            pointFinished = true;
+
+            clearMotorQueue();
+        }
+
+        if (pointFinished)
+        {
+            // Store last point
+            lastPoint = nextPoint;
+
+            // Get next point
+            if (!sdCard.getNextPoint(&nextPoint))
+            {
+                // => No point found
+                isFinished = true;
+
+                // Close file
+                sdCard.closeFile();
+
+                return true;
+            }
+
+            // Update points
+            nextPoint.updatePoint();
+            lastPoint.updatePoint();
+
+            // Get number of micropoints
+            numberOfMicropoints = getNumberOfMicropoints(nextPoint.getDistanceToPoint(lastPoint));
+
+            // Calculation of the angle of micro points when they are needed
+            angleRadMicropoints = getAngleOfMicropoints(nextPoint, lastPoint);
+            currentMicroPointIndex = 0;
+
+            currentMicropoint.updatePoint();
+
+            // Set pen for next point
+            setPen(nextPoint.draw);
+
+            // Wait for pen to move
+            if (nextPoint.draw != lastPoint.draw)
+            {
+                delay(TIME_TO_MOVE_PEN_MS);
+            }
+
+            pointFinished = false;
+        }
+
+        if (!motors.run())
+        {
+            if (currentMicroPointIndex <= numberOfMicropoints)
+            {
+
+                Serial.println("new micro");
+
+                // => Get new micro point
+                currentMicropoint = getCurrentMicropoint(currentMicroPointIndex, numberOfMicropoints, angleRadMicropoints, nextPoint, lastPoint);
+                currentMicropoint.updatePoint();
+
+                setMotorTarget(getFastestRotAbs(currentMicropoint), getLinPos(currentMicropoint));
+
+                currentMicroPointIndex++;
+            }
+            else
+            {
+                Serial.println("next one please");
+
+                pointFinished = true;
+            }
+        }
 
         return true;
     }
@@ -141,53 +267,6 @@ public:
         pinMode(pin, INPUT);
 
         return true;
-    }
-
-    void moveTo(Point nextPoint, Point lastPoint = Point(0, 0, false))
-    {
-        setPen(nextPoint.draw);
-
-        if (nextPoint.draw != lastPoint.draw)
-        {
-            delay(500);
-        }
-
-        if (nextPoint.draw && (nextPoint.getDistanceToPoint(lastPoint) > MAX_DISTANCE_BETWEEN_MICROPOINTS))
-        {
-            long numberOfMicropoints = getNumberOfMicropoints(nextPoint.getDistanceToPoint(lastPoint));
-
-            double angleRadMicropoints = getAngleOfMicropoints(nextPoint, lastPoint);
-
-            for (long i = 0; i < numberOfMicropoints; i++)
-            {
-                Point micropoint = getCurrentMicropoint(i, numberOfMicropoints, angleRadMicropoints, nextPoint, lastPoint);
-
-                long newAbsSteps[] = {getFastestRotAbs(micropoint), getLinPos(micropoint)};
-
-                motors.moveTo(newAbsSteps);
-                motors.runSpeedToPosition();
-            }
-
-            long val = getFastestRotAbs(nextPoint);
-
-            Serial.println(val);
-
-            long newAbsSteps[] = {val, getLinPos(nextPoint)};
-
-            motors.moveTo(newAbsSteps);
-            motors.runSpeedToPosition();
-        }
-        else
-        {
-             long val = getFastestRotAbs(nextPoint);
-
-            Serial.println(val);
-
-            long newAbsSteps[] = {val, getLinPos(nextPoint)};
-
-            motors.moveTo(newAbsSteps);
-            motors.runSpeedToPosition();
-        }
     }
 
 private:
@@ -285,14 +364,6 @@ private:
             motor_turn.setCurrentPosition(motor_turn.currentPosition() + STEPS_FULL_ROTATION);
         }
 
-
-
-
-
-
-
-
-
         long currentPositionRot = motor_turn.currentPosition();
 
         long nextPositionRot = nextPoint.angle * MOTOR_STEPS_DEG;
@@ -309,8 +380,6 @@ private:
         }
 
         return currentPositionRot + deltaMove;
-
-        
     }
 
     long getLinPos(Point nextPoint)
