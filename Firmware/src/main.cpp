@@ -3,13 +3,12 @@
 #include "sdCard.h"
 #include "machine.h"
 
-#define PIN_SD_CS A1
-
 #define FILENAME "fisch.txt"
 
 enum State
 {
     START,
+    INIT_MACHINE,
     READY,
     HOMING,
     DRAWING,
@@ -22,152 +21,15 @@ State currentState = START;
 bool isFirst = true;
 bool isFinished = false;
 
-
 Machine machine;
 
-void failState(void)
-{
-    Serial.println("Failstate");
-
-    machine.setPen(false);
-    machine.disableMotors();
-
-    while (true)
-    {
-    }
-}
+String lastErrorMessage;
 
 void setup(void)
 {
     Serial.begin(115200);
 
     delay(3000);
-
-    // Init SD Card
-    Serial.print("Init SD");
-    if (sdCard.begin(PIN_SD_CS))
-    {
-        Serial.println(" --> OK");
-    }
-    else
-    {
-        Serial.println(" --> Fail");
-        failState();
-    }
-
-    // Open file
-    Serial.print("Open file");
-    if (sdCard.openFile(FILENAME))
-    {
-        Serial.println(" --> OK");
-    }
-    else
-    {
-        Serial.println(" --> Fail");
-        failState();
-    }
-
-    // Init motors
-    Serial.print("Init motors");
-    if (machine.begin(1000, 50, 1000, 50))
-    {
-        Serial.println(" --> OK");
-    }
-    else
-    {
-        Serial.println(" --> Fail");
-        failState();
-    }
-
-    // Init servo
-    Serial.print("Init servo");
-    if (machine.initServo(PIN_SERVO))
-    {
-        Serial.println(" --> OK");
-    }
-    else
-    {
-        Serial.println(" --> Fail");
-        failState();
-    }
-
-    // Init switch
-    Serial.print("Init switch");
-    if (machine.initSwitch(PIN_ENDSWITCH))
-    {
-        Serial.println(" --> OK");
-    }
-    else
-    {
-        Serial.println(" --> Fail");
-        failState();
-    }
-
-    machine.enableMotors();
-
-    // // Home machine
-    // Serial.print("Home machine");
-    // if (machine.home())
-    // {
-    //     Serial.println(" --> OK");
-    // }
-    // else
-    // {
-    //     Serial.println(" --> Fail");
-    //     failState();
-    // }
-
-    // // Start drawing
-    // Serial.println("Start drawing:");
-
-    // Point nextPoint = Point(10, 10, false);
-    // Point lastPoint = Point(10, 10, false);
-
-    // lastPoint.updatePoint();
-
-    // while (sdCard.getNextPoint(&nextPoint))
-    // {
-    //     nextPoint.updatePoint();
-    //     Serial.print("next Point: ");
-    //     Serial.print("X = ");
-    //     Serial.print(nextPoint.x);
-    //     Serial.print("  Y = ");
-    //     Serial.print(nextPoint.y);
-    //     Serial.print("  draw = ");
-    //     Serial.println(nextPoint.draw);
-
-    //     machine.moveTo(nextPoint, lastPoint);
-
-    //     lastPoint = nextPoint;
-    //     lastPoint.updatePoint();
-    // }
-    // Serial.println("Finished drawing");
-
-    // // Close file
-    // Serial.print("Close file");
-    // if (sdCard.closeFile())
-    // {
-    //     Serial.println(" --> OK");
-    // }
-    // else
-    // {
-    //     Serial.println(" --> Fail");
-    //     failState();
-    // }
-
-    // // Home machine
-    // Serial.print("Home machine");
-    // if (machine.home())
-    // {
-    //     Serial.println(" --> OK");
-    // }
-    // else
-    // {
-    //     Serial.println(" --> Fail");
-    //     failState();
-    // }
-
-    // machine.disableMotors();
 }
 
 void setState(State newState)
@@ -189,6 +51,18 @@ void loop()
             Serial.println("START");
         }
 
+        setState(INIT_MACHINE);
+
+        break;
+
+    case INIT_MACHINE:
+
+        machine.init();
+
+        machine.enableStepperMotors();
+
+        sdCard.begin();
+
         setState(HOMING);
 
         break;
@@ -199,7 +73,7 @@ void loop()
             Serial.println("HOMING");
         }
 
-        if (!machine.home(isFinished, isFirst))
+        if (!machine.homeLinAxis(isFinished, isFirst))
         {
             setState(FAULT);
 
@@ -223,7 +97,7 @@ void loop()
         break;
 
     case DRAWING:
-    
+
         if (isFirst)
         {
             Serial.println("DRAWING");
@@ -248,6 +122,7 @@ void loop()
         {
             Serial.println("FINISHED");
             isFirst = false;
+            machine.disableStepperMotors();
         }
 
     case FAULT:
@@ -255,7 +130,7 @@ void loop()
         {
             isFirst = false;
 
-            machine.disableMotors();
+            machine.disableStepperMotors();
             Serial.println("FAULT");
         }
 

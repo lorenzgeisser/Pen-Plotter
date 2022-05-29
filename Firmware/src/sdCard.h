@@ -6,12 +6,14 @@
 #include <SD.h>
 #include <Arduino.h>
 
+#define PIN_SD_CS A1
+
 class SdCard
 {
 public:
-    bool begin(int csPin)
+    bool begin(void)
     {
-        return SD.begin(csPin);
+        return SD.begin(PIN_SD_CS);
     }
 
     bool openFile(String _filename)

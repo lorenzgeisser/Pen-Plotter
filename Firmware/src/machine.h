@@ -7,119 +7,111 @@
 #include <Servo.h>
 #include "point.h"
 
-#define PIN_MOT_ROT_EN 6
-#define PIN_MOT_ROT_DIR 2
-#define PIN_MOT_ROT_STP 3
+// Pins
+const int PinMotorRotEn = 6;
+const int PinMotorRotDir = 2;
+const int PinMotorRotStp = 3;
 
-#define PIN_MOT_LIN_EN 6
-#define PIN_MOT_LIN_DIR 10
-#define PIN_MOT_LIN_STP A0
+const int PinMotorLinEn = 6;
+const int PinMotorLinDir = 10;
+const int PinMotorLinStp = A0;
 
-#define PIN_ENDSWITCH 4
-#define PIN_SERVO 5
+const int PinLimitSwitch = 4;
 
-#define MOTOR_STEPS_FULL 200 * 16
-#define MOTOR_STEPS_DEG ((MOTOR_STEPS_FULL) / 360.0)
+const int PinServoMotor = 5;
 
-#define STEPS_FULL_ROTATION 200 * 16
-#define STEPS_HALF_ROTATION 200 * 16 / 2
+// Motor speed and acceleration
+const float SpeedMotorRot = 1000.0;
+const float AccelerationMotorRot = 50.0;
 
-#define STEPS_PER_MM (8060 / 102.0)
+const float SpeedMotorLin = 1000.0;
+const float AccelerationMotorLin = 50.0;
 
-#define MAX_DISTANCE_BETWEEN_MICROPOINTS 4
+// Machine parameters
+const double MotorMicrosteps = 16.0;
+const double MotorStepsFullRotation = 200.0 * MotorMicrosteps;
+const double MotorStepsHalfRotation = MotorStepsFullRotation / 2.0;
 
-#define MAX_DISTANCE_HOMING_MM 300
+const double MotorRotStepsPerDeg = MotorStepsFullRotation / 360.0;
+const double MotorLinStepsPerMm = 79.0196;
 
-#define DISTANCE_SWITCH_MOVE_AWAY_MM 1
+const double DistanceMaxBetweenMicropointsMm = 1.0;
 
-#define DISTANCE_SWITCH_TO_MIDDLE_MM 70.5
+const double DistanceMaxHomingMm = 300;
 
-#define TIME_TO_MOVE_PEN_MS 500
+const double DistanceLimitSwitchToMiddleMm = 70.5;
 
+const int TimeToMovePenMs = 1000;
+
+// Definition homing point
+Point homePoint(DistanceLimitSwitchToMiddleMm, 0);
+
+// Instances
 AccelStepper motor_turn;
 AccelStepper motor_linear;
-
 MultiStepper motors;
-
 SdCard sdCard;
-
 Servo myservo;
-
-Point homePoint(DISTANCE_SWITCH_TO_MIDDLE_MM, 0);
 
 class Machine
 {
 public:
-    bool begin(float speedLinear, float accelerationLinear, float speedRot, float accelerationRot)
+    // Initializes the stepper motors, the servo motor and the limit switch
+    void init(void)
     {
-        motor_turn = AccelStepper(AccelStepper::DRIVER, PIN_MOT_ROT_STP, PIN_MOT_ROT_DIR);
-        motor_linear = AccelStepper(AccelStepper::DRIVER, PIN_MOT_LIN_STP, PIN_MOT_LIN_DIR);
+        // Initialize stepper motors
+        motor_turn = AccelStepper(AccelStepper::DRIVER, PinMotorRotStp, PinMotorRotDir);
+        motor_linear = AccelStepper(AccelStepper::DRIVER, PinMotorLinStp, PinMotorLinDir);
 
         motor_turn.setPinsInverted(false, false, true);
-        motor_turn.setEnablePin(PIN_MOT_ROT_EN);
+        motor_turn.setEnablePin(PinMotorRotEn);
 
         motor_linear.setPinsInverted(false, false, true);
-        motor_linear.setEnablePin(PIN_MOT_LIN_EN);
+        motor_linear.setEnablePin(PinMotorLinEn);
 
-        motor_linear.setMaxSpeed(speedLinear);
-        motor_linear.setAcceleration(accelerationLinear);
+        // Configure motor speed an acceleration
+        motor_linear.setMaxSpeed(SpeedMotorLin);
+        motor_linear.setAcceleration(AccelerationMotorLin);
 
-        motor_turn.setMaxSpeed(speedRot);
-        motor_turn.setAcceleration(accelerationRot);
+        motor_turn.setMaxSpeed(SpeedMotorRot);
+        motor_turn.setAcceleration(AccelerationMotorRot);
 
+        // Add stepper motors to the milti stepper object
         motors.addStepper(motor_turn);
         motors.addStepper(motor_linear);
 
-        disableMotors();
+        // Disable stepper motors
+        disableStepperMotors();
 
-        return true;
+        // Clear motor queue to stop motors
+        clearMotorQueue();
+
+        // Initialize servo motor
+        initServo(PinServoMotor);
+
+        // Initialize limit switch
+        initSwitch(PinLimitSwitch);
     }
 
-    bool enableMotors(void)
+    // Enables stepper motors
+    void enableStepperMotors(void)
     {
         motor_turn.enableOutputs();
         motor_linear.enableOutputs();
-
-        return true;
     }
 
-    bool disableMotors(void)
+    // Disables stepper motors
+    void disableStepperMotors(void)
     {
         motor_turn.disableOutputs();
         motor_linear.disableOutputs();
-
-        return true;
     }
 
-    bool setPen(bool active)
+    // Homes linear axis using limit switch
+    bool homeLinAxis(bool &isFinished, bool &isFirst)
     {
-        if (active)
-        {
-            myservo.write(100);
-        }
-        else
-        {
-            myservo.write(70);
-        }
+        static uint32_t millisAtSetPenMs;
 
-        return true;
-    }
-
-    bool initServo(int pin)
-    {
-        myservo.attach(pin);
-
-        return true;
-    }
-
-    void setMotorTarget(long rot, long lin)
-    {
-        long tempSteps[] = {rot, lin};
-        motors.moveTo(tempSteps);
-    }
-
-    bool home(bool &isFinished, bool &isFirst)
-    {
         if (isFirst)
         {
             // Reset isFirst
@@ -128,30 +120,43 @@ public:
             // Move pen up
             setPen(false);
 
-            // Reset absolute positions of motors
-            motor_linear.setCurrentPosition(0);
-            motor_turn.setCurrentPosition(0);
+            // Store current time in millis
+            millisAtSetPenMs = millis();
 
             // Move linear motor until switch is pressed
-            setMotorTarget(0, MAX_DISTANCE_HOMING_MM * STEPS_PER_MM);
+            setMotorTarget(0, DistanceMaxHomingMm * MotorLinStepsPerMm);
         }
 
-        if (!digitalRead(PIN_ENDSWITCH))
+        // Wait until pen is moved to position
+        if (millis() < (millisAtSetPenMs + TimeToMovePenMs))
         {
-            // The linear axis has reached the limit switch
-
-            // Set absolute position of linear motor
-            motor_linear.setCurrentPosition(homePoint.x * STEPS_PER_MM);
-
-            isFinished = true;
+            // Return without error
+            return true;
         }
-        else if (!motors.run())
-        {
-            // The linear axis has not reached the limit switch
 
+        if (!motors.run())
+        {
+            // => The linear axis has not reached the limit switch
+
+            // Return with error
             return false;
         }
 
+        // Check if limit switch is pressed
+        if (!digitalRead(PinLimitSwitch))
+        {
+            // => Limit switch is pressed
+
+            // Set absolute position of linear motor
+            motor_linear.setCurrentPosition(homePoint.x * MotorLinStepsPerMm);
+
+            isFinished = true;
+
+            // Return without error
+            return true;
+        }
+
+        // Return without error
         return true;
     }
 
@@ -172,6 +177,8 @@ public:
         static double angleRadMicropoints;
 
         static long currentMicroPointIndex;
+
+        static uint32_t millisWait = 0;
 
         if (isFirst)
         {
@@ -230,10 +237,19 @@ public:
             // Wait for pen to move
             if (nextPoint.draw != lastPoint.draw)
             {
-                delay(TIME_TO_MOVE_PEN_MS);
+                millisWait = millis() + TimeToMovePenMs;
+            }
+            else
+            {
+                millisWait = 0;
             }
 
             pointFinished = false;
+        }
+
+        if (millis() < millisWait)
+        {
+            return true;
         }
 
         if (!motors.run())
@@ -262,6 +278,36 @@ public:
         return true;
     }
 
+private:
+    // Sets pen position
+    bool setPen(bool active)
+    {
+        if (active)
+        {
+            myservo.write(100);
+        }
+        else
+        {
+            myservo.write(70);
+        }
+
+        return true;
+    }
+
+    // Sets new absolute motor target mosition
+    void setMotorTarget(long rot, long lin)
+    {
+        long tempSteps[] = {rot, lin};
+        motors.moveTo(tempSteps);
+    }
+
+    bool initServo(int pin)
+    {
+        myservo.attach(pin);
+
+        return true;
+    }
+
     bool initSwitch(int pin)
     {
         pinMode(pin, INPUT);
@@ -269,16 +315,15 @@ public:
         return true;
     }
 
-private:
     long getNumberOfMicropoints(double distancePoints)
     {
         double tempNumber = abs(distancePoints);
         long number = 0;
 
-        while (tempNumber > MAX_DISTANCE_BETWEEN_MICROPOINTS)
+        while (tempNumber > DistanceMaxBetweenMicropointsMm)
         {
             number++;
-            tempNumber -= MAX_DISTANCE_BETWEEN_MICROPOINTS;
+            tempNumber -= DistanceMaxBetweenMicropointsMm;
         }
 
         if (tempNumber > 0)
@@ -322,8 +367,8 @@ private:
         }
         else
         {
-            double newDenta_x = cos(angleOfMicropoints) * currentMicropoint * MAX_DISTANCE_BETWEEN_MICROPOINTS;
-            double newDenta_y = sin(angleOfMicropoints) * currentMicropoint * MAX_DISTANCE_BETWEEN_MICROPOINTS;
+            double newDenta_x = cos(angleOfMicropoints) * currentMicropoint * DistanceMaxBetweenMicropointsMm;
+            double newDenta_y = sin(angleOfMicropoints) * currentMicropoint * DistanceMaxBetweenMicropointsMm;
 
             double x = currentPoint.x;
 
@@ -353,30 +398,30 @@ private:
     long getFastestRotAbs(Point nextPoint)
     {
         // prenvent overflow of currentPosition
-        while (motor_turn.currentPosition() > STEPS_FULL_ROTATION)
+        while (motor_turn.currentPosition() > MotorStepsFullRotation)
         {
-            motor_turn.setCurrentPosition(motor_turn.currentPosition() - STEPS_FULL_ROTATION);
+            motor_turn.setCurrentPosition(motor_turn.currentPosition() - MotorStepsFullRotation);
         }
 
         // change negative currentPosition to positive
         while (motor_turn.currentPosition() < 0)
         {
-            motor_turn.setCurrentPosition(motor_turn.currentPosition() + STEPS_FULL_ROTATION);
+            motor_turn.setCurrentPosition(motor_turn.currentPosition() + MotorStepsFullRotation);
         }
 
         long currentPositionRot = motor_turn.currentPosition();
 
-        long nextPositionRot = nextPoint.angle * MOTOR_STEPS_DEG;
+        long nextPositionRot = nextPoint.angle * MotorRotStepsPerDeg;
 
         long deltaMove = nextPositionRot - currentPositionRot;
 
-        if (deltaMove > STEPS_HALF_ROTATION)
+        if (deltaMove > MotorStepsHalfRotation)
         {
-            deltaMove -= STEPS_FULL_ROTATION;
+            deltaMove -= MotorStepsFullRotation;
         }
-        else if (deltaMove < (-1 * STEPS_HALF_ROTATION))
+        else if (deltaMove < (-1 * MotorStepsHalfRotation))
         {
-            deltaMove += STEPS_FULL_ROTATION;
+            deltaMove += MotorStepsFullRotation;
         }
 
         return currentPositionRot + deltaMove;
@@ -384,7 +429,7 @@ private:
 
     long getLinPos(Point nextPoint)
     {
-        return STEPS_PER_MM * nextPoint.radius;
+        return MotorLinStepsPerMm * nextPoint.radius;
     }
 };
 
