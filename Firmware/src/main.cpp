@@ -1,13 +1,14 @@
+// -------------- INCLUDES --------------
 #include <Arduino.h>
 #include "point.h"
 #include "sdCard.h"
 #include "machine.h"
 
-#define FILENAME "fisch.txt"
 
+// -------------- ENUMS --------------
 enum State
 {
-    START,
+    INIT,
     INIT_MACHINE,
     READY,
     HOMING,
@@ -16,22 +17,25 @@ enum State
     FINISHED
 };
 
-State currentState = START;
 
+// -------------- CONSTANTS --------------
+const String FileName =  "gcode.txt";
+const State StartState = INIT;
+
+
+// -------------- GLOBAL VARIABLES --------------
+// Flags
 bool isFirst = true;
 bool isFinished = false;
 
-Machine machine;
 
+Machine machine;
+State currentState = StartState;
 String lastErrorMessage;
 
-void setup(void)
-{
-    Serial.begin(115200);
 
-    delay(3000);
-}
-
+// -------------- FUNCTIONS --------------
+// Changes state of state machine
 void setState(State newState)
 {
     currentState = newState;
@@ -40,12 +44,23 @@ void setState(State newState)
     isFirst = true;
 }
 
+
+// -------------- SETUP --------------
+void setup(void)
+{
+    Serial.begin(115200);
+
+    delay(3000);
+}
+
+
+// -------------- LOOP --------------
 void loop()
 {
 
     switch (currentState)
     {
-    case START:
+    case INIT:
         if (isFirst)
         {
             Serial.println("START");
@@ -103,7 +118,7 @@ void loop()
             Serial.println("DRAWING");
         }
 
-        if (!machine.draw(isFinished, isFirst, FILENAME))
+        if (!machine.draw(isFinished, isFirst, FileName))
         {
             setState(FAULT);
 
@@ -127,7 +142,7 @@ void loop()
 
     case FAULT:
         if (isFirst)
-        {
+        {            
             isFirst = false;
 
             machine.disableStepperMotors();

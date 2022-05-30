@@ -60,7 +60,7 @@ public:
 
                 return true;
             }
-            else if (currentChar.startsWith("M300"))
+            if (currentChar.startsWith("M300"))
             {
                 // new pen command
                 double value = currentChar.substring(6).toDouble();
