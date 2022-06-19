@@ -2,6 +2,7 @@
 #include "point.h"
 #include "sdCard.h"
 #include "machine.h"
+#include <Servo.h>
 
 #define FILENAME "fisch.txt"
 
@@ -15,6 +16,7 @@ enum State
     FAULT,
     FINISHED
 };
+Servo myservo1;
 
 State currentState = START;
 
@@ -28,6 +30,36 @@ String lastErrorMessage;
 void setup(void)
 {
     Serial.begin(115200);
+
+    myservo1.attach(5);
+
+    myservo1.write(4);
+    delay(4000);
+    myservo1.write(65);
+    delay(4000);
+
+    myservo1.write(4);
+    delay(4000);
+    myservo1.write(65);
+    delay(4000);
+
+    myservo1.write(4);
+    delay(4000);
+    myservo1.write(65);
+    delay(4000);
+
+    myservo1.write(4);
+    delay(4000);
+    myservo1.write(65);
+    delay(4000);
+
+    myservo1.write(4);
+    delay(4000);
+    myservo1.write(65);
+    delay(4000);
+
+    while (1)
+        ;
 
     delay(3000);
 }
